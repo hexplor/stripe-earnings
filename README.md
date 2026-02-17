@@ -8,7 +8,7 @@ Display today's Stripe gross volume in your Ubuntu/GNOME top bar using [Argos](h
 
 ![screenshot](screenshot.jpg)
 
-Auto-refreshes every 5 minutes. Click to see details or open Stripe Dashboard.
+Auto-refreshes every 5 minutes. Plays a coin sound on new sales. Click to see details or open Stripe Dashboard.
 
 ## Requirements
 
@@ -88,9 +88,10 @@ mv stripe_gross.5m.py stripe_gross.1m.py   # switch to 1 minute
 1. Reads the Stripe API key from GNOME Keyring via `secret-tool`
 2. Fetches today's balance transactions (`charge` + `payment` types) from the Stripe API
 3. Sums up gross volume, grouped by currency
-4. Outputs in [Argos format](https://github.com/p-e-w/argos) for display in the top bar
+4. Compares with the previous amount — if it increased, plays a coin clink sound via `paplay`
+5. Outputs in [Argos format](https://github.com/p-e-w/argos) for display in the top bar
 
-Handles pagination automatically if you have more than 100 transactions per day.
+Handles pagination automatically if you have more than 100 transactions per day. The coin sound is generated as a WAV file on first run (pure Python, no external assets) and cached in `~/.cache/stripe-earnings/`.
 
 ## Dropdown menu
 

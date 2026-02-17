@@ -6,10 +6,15 @@ Refreshes every 5 minutes (configurable via filename).
 """
 
 import json
+import math
+import os
+import struct
 import subprocess
 import urllib.request
 import urllib.error
+import wave
 from datetime import datetime
+from pathlib import Path
 
 
 def get_api_key():
@@ -25,6 +30,62 @@ def get_api_key():
 
 
 GROSS_VOLUME_TYPES = {"charge", "payment"}
+CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "stripe-earnings"
+LAST_AMOUNT_FILE = CACHE_DIR / "last_amount"
+COIN_SOUND_FILE = CACHE_DIR / "coin.wav"
+
+
+def generate_coin_sound(path):
+    """Generate a coin clink WAV file using pure Python."""
+    sample_rate = 44100
+    duration = 0.4
+    n_samples = int(sample_rate * duration)
+    samples = []
+
+    for i in range(n_samples):
+        t = i / sample_rate
+        decay = math.exp(-t * 12)
+        # Two high-pitched tones for metallic coin sound
+        tone1 = math.sin(2 * math.pi * 3520 * t)  # A7
+        tone2 = math.sin(2 * math.pi * 5274 * t)  # E8
+        # Second hit slightly delayed
+        decay2 = math.exp(-(t - 0.07) * 14) if t > 0.07 else 0
+        tone3 = math.sin(2 * math.pi * 4186 * t)  # C8
+        sample = (tone1 * 0.5 + tone2 * 0.3) * decay + tone3 * 0.4 * decay2
+        samples.append(int(sample * 16000))
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "w") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+
+
+def play_coin_sound():
+    """Play coin sound if paplay is available."""
+    if not COIN_SOUND_FILE.exists():
+        generate_coin_sound(COIN_SOUND_FILE)
+    subprocess.Popen(
+        ["paplay", str(COIN_SOUND_FILE)],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+
+
+def check_and_notify(totals):
+    """Play coin sound if gross volume increased (new sale)."""
+    current = sum(totals.values())
+    try:
+        previous = int(LAST_AMOUNT_FILE.read_text().strip())
+    except (FileNotFoundError, ValueError):
+        previous = 0
+
+    if current > previous:
+        if previous > 0:  # Don't play on first run / start of day
+            play_coin_sound()
+
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    LAST_AMOUNT_FILE.write_text(str(current))
 
 
 def fetch_gross_volume(api_key):
@@ -77,6 +138,8 @@ def main():
 
     try:
         totals = fetch_gross_volume(api_key)
+
+        check_and_notify(totals)
 
         if not totals:
             print("\U0001f4b0 0.00")
