@@ -6,9 +6,7 @@ Display today's Stripe gross volume in your Ubuntu/GNOME top bar using [Argos](h
 ![GNOME](https://img.shields.io/badge/GNOME-Shell-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-```
- 💰 714.67 PLN          # <- your top bar
-```
+![screenshot](screenshot.jpg)
 
 Auto-refreshes every 5 minutes. Click to see details or open Stripe Dashboard.
 
